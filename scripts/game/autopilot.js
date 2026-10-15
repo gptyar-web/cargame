@@ -62,6 +62,8 @@ function pathCost(position, heading, waypoints) {
     const turn = Math.abs(angleDifference(direction, previousHeading));
     // Turns take time; an about-face is much worse than continuing forward.
     cost += length + turn * (cost === 0 ? 32 : 15);
+    // Avoid a sharp corner that leaves too little runway to reach its coin.
+    if (turn > .5 && length < 55) cost += (55 - length) * 4 * turn / (Math.PI / 2);
     previousHeading = direction;
     previous = point;
   }
@@ -154,7 +156,7 @@ export function createCoinAutopilot() {
       points = route.waypoints;
       waypoint = points[index]; gap = distance(state, waypoint);
     }
-    const lookahead = clamp(speed * .5 + 22, 25, 45);
+    const lookahead = clamp(speed * .5 + 12, 15, 35);
     let aim = waypoint;
     if (index < points.length - 1 && gap < lookahead) {
       const next = points[index + 1];
@@ -165,7 +167,7 @@ export function createCoinAutopilot() {
 
     const headingError = angleDifference(angleTo(state, aim), state.heading);
     // Proportional steering prevents the full-lock oscillation of binary keys.
-    const steering = clamp(headingError * 2.0 - (state.steering || 0) * .24, -1, 1);
+    const steering = clamp(headingError * 1.6 - (state.steering || 0) * .24, -1, 1);
     let targetSpeed = maxSpeedKmh / 3.6;
 
     if (index < points.length - 1) {
@@ -177,7 +179,7 @@ export function createCoinAutopilot() {
         // Start slowing early enough to negotiate an intersection, then accelerate.
         const cornerSpeed = clamp(16 - bend * 5, 7, 15);
         const brakingDistance = Math.max(0, gap - 20);
-        targetSpeed = Math.min(targetSpeed, Math.sqrt(cornerSpeed ** 2 + 2 * 12 * brakingDistance));
+        targetSpeed = Math.min(targetSpeed, Math.sqrt(cornerSpeed ** 2 + 2 * 8 * brakingDistance));
       }
     }
 
