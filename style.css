@@ -162,7 +162,7 @@ button,input,select{min-height:44px}
 .car-actions #autoDriveButton[aria-pressed="true"]{background:#17644bdc;border-color:#85ffd0;color:#fff;box-shadow:0 0 0 1px #85ffd033,0 0 18px #43db9b55}
 .car-actions #autoDriveButton:focus-visible{outline:2px solid #85ffd0;outline-offset:3px}
 .car-actions #autoDriveButton:disabled{opacity:.55;cursor:not-allowed}
-@media(max-width:370px){.car-actions{gap:3px}.car-actions .ui-button{padding-left:5px;padding-right:5px}.car-actions #autoDriveButton{min-width:60px}}
+
 .touch-controls{position:fixed;right:max(20px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;user-select:none;touch-action:none}
 .touch-group{display:flex;gap:8px;direction:ltr}
 .control-button{width:55px;height:55px;min-height:55px;border-radius:13px;font-size:24px;color:#e0edf1;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -236,3 +236,4 @@ td:nth-child(5),td:nth-child(6){color:var(--mint);font-weight:600}
 @media(max-width:370px){.hero h1{font-size:52px}.hero-start{flex-direction:column;align-items:start;gap:5px}.hero-start small{max-width:100%}.car-grid{gap:9px}.hero-features{gap:10px}.control-button{width:43px}.touch-group{gap:5px}.guide-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr;gap:0}}
 @media(max-height:560px) and (orientation:landscape){.hud{width:185px;top:8px;right:8px;padding:9px}.hud-row{display:none}.speed{margin:4px 0}#speed{font-size:35px}.fuel-line{font-size:7px}.game-stats{margin-top:6px;padding-top:6px}.top-actions{top:8px;left:8px;max-width:60%;flex-wrap:nowrap}.top-actions .ui-button{font-size:8px;width:auto;min-height:31px;padding:5px 8px}.radar-panel{width:107px;left:8px;bottom:8px;padding:6px}.radar-caption{display:none}.panel-title{font-size:7px}.touch-controls{left:auto;right:8px;bottom:8px;flex-direction:row;gap:10px}.control-button{width:43px;height:44px;min-height:44px;font-size:20px}.car-actions{right:8px;left:auto;bottom:65px;transform:none;gap:5px}.car-actions .ui-button{font-size:8px;min-height:31px;padding:5px 8px}.car-actions .ui-button:first-child,.car-actions .ui-button:nth-child(3){font-size:15px}.level-toast{top:40%;padding:9px 15px}.level-toast strong{font-size:15px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+@media(max-width:370px){.car-actions{gap:3px}.car-actions .ui-button{padding-left:5px;padding-right:5px}.car-actions #autoDriveButton{min-width:60px}}
