@@ -78,6 +78,13 @@ async function waitUntil(predicate, message, timeout = 15000) {
     assert.equal(driving.maxSpeed, 300);
     assert.equal(await page.locator('#helpButton').isVisible(), false, 'help belongs only to menu');
     assert.ok(driving.fuel < 100, 'driving consumes fuel');
+    assert.equal(await page.locator('#autoDriveButton').getAttribute('aria-pressed'), 'false');
+    await page.locator('#autoDriveButton').click();
+    assert.equal(await page.evaluate(() => window.carGame.getState().autoDriving), true);
+    assert.equal(await page.locator('#autoDriveButton').getAttribute('aria-pressed'), 'true');
+    await page.keyboard.down('ArrowUp');
+    assert.equal(await page.evaluate(() => window.carGame.getState().autoDriving), false, 'manual driving immediately cancels auto-drive');
+    await page.keyboard.up('ArrowUp');
     if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, 'driving-desktop.png') });
     await page.keyboard.press('KeyQ');
     assert.equal(await page.evaluate(() => window.carGame.getState().signal), 'left');
@@ -195,7 +202,7 @@ async function waitUntil(predicate, message, timeout = 15000) {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false, 'mobile menu must fit viewport');
     if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, 'garage-mobile.png'), fullPage: true });
     await page.locator('#startButton').click();
-    for (const selector of ['#menuButton', '#hornButton', '#refuelButton', '#leftSignalButton', '#rightSignalButton', '[data-control="up"]', '[data-control="down"]', '[data-control="left"]', '[data-control="right"]']) {
+    for (const selector of ['#autoDriveButton', '#menuButton', '#hornButton', '#refuelButton', '#leftSignalButton', '#rightSignalButton', '[data-control="up"]', '[data-control="down"]', '[data-control="left"]', '[data-control="right"]']) {
       const box = await page.locator(selector).boundingBox();
       assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 391 && box.y + box.height <= 845, `${selector} remains inside mobile viewport`);
     }
