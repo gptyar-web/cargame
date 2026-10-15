@@ -297,7 +297,7 @@ function frame(now) {
   if(!active&&renderFrames<=0)return;
   if(!active)renderFrames--;
   traffic.update(dt,active);
-  const driveInputs=active&&autoDriving?autopilot.update(state,selected.maxSpeed,collectibles.coins,traffic.cars):keys;
+  const driveInputs=active&&autoDriving?autopilot.update(state,selected.maxSpeed,collectibles.coins,traffic.cars,dt):keys;
   if(active) {
     const previousPosition={x:state.x,z:state.z};
     physics(dt,driveInputs);collectibles.update(dt,previousPosition);
