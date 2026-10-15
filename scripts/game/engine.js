@@ -6,6 +6,7 @@ import { GameAudio } from './audio.js';
 import { createTraffic } from './traffic.js';
 import { createCollectibles, createDrivingEffects } from './effects.js';
 import { createRadar } from './radar.js';
+import { createCoinAutopilot } from './autopilot.js';
 
 const $ = selector => document.querySelector(selector);
 const mount = $('#game');
@@ -78,7 +79,23 @@ const collectibles=createCollectibles(scene,state,()=>{
 const effects=createDrivingEffects(scene,state);
 const drawRadar=createRadar($('#radarCanvas'),state,world,traffic,collectibles);
 const controlButtons=[...document.querySelectorAll('[data-control]')];
+const autopilot=createCoinAutopilot();
+let autoDriving=false;
 const setText=(id,value)=>{const el=$(`#${id}`);if(el)el.textContent=String(value);};
+function setAutoDriving(enabled) {
+  autoDriving=!!enabled&&started;
+  autopilot.reset();
+  if(autoDriving)clearInputs();
+  const button=$('#autoDriveButton');
+  if(button) {
+    button.disabled=!started;
+    button.setAttribute('aria-pressed',String(autoDriving));
+    button.setAttribute('aria-label',autoDriving?'غیرفعال‌سازی رانندگی خودکار':'فعال‌سازی رانندگی خودکار برای جمع‌آوری سکه‌ها');
+    button.textContent=autoDriving?'خودکار ✓':'خودکار';
+    button.title=autoDriving?'توقف حالت جمع‌آوری خودکار سکه‌ها':'حرکت خودکار با بیشترین سرعت امن برای جمع‌آوری سکه‌ها';
+  }
+}
+
 
 function showToast(title,message) {
   const toast=$('#levelToast');
@@ -124,6 +141,7 @@ function clearInputs() {
   controlButtons.forEach(button=>button.classList.remove('is-active'));
 }
 function resetCar() {
+  setAutoDriving(false);
   Object.assign(state,{x:3.5,z:54,heading:0,speed:0,steering:0,wheelSpin:0,driftAngle:0});
   if(state.fuel<=0) {state.fuel=15;showToast('امداد رسید','سوخت اضطراری دریافت شد؛ به پمپ بنزین برو');}
   refueling=false;clearInputs();renderFrames=3;
@@ -136,18 +154,18 @@ function start(carId=selected.id) {
     selected=next;car=createVehicle(selected);scene.add(car);
     state.fuel=100;state.signal=null;resetCar();
   }
-  started=true;audio.init();clearInputs();updateHud();
+  started=true;setAutoDriving(false);audio.init();clearInputs();updateHud();
   return getState();
 }
 function pause() {
-  started=false;refueling=false;state.speed=0;clearInputs();renderFrames=2;
+  started=false;setAutoDriving(false);refueling=false;state.speed=0;clearInputs();renderFrames=2;
   audio.update(0,false,false,false,false);updateHud();
   return getState();
 }
 function getState() {
   return {speed:Math.round(Math.abs(state.speed)*3.6),fuel:state.fuel,started,carId:selected.id,maxSpeed:selected.maxSpeed,
     position:{x:state.x,z:state.z},heading:state.heading,totalSessionCoins:progress.coins,score:progress.score,level:progress.level,
-    refuelAvailable:!!nearbyStation()&&Math.abs(state.speed)<1.5,refueling,cameraMode,muted:audio.muted,volume:audio.volume,
+    refuelAvailable:!!nearbyStation()&&Math.abs(state.speed)<1.5,refueling,autoDriving,cameraMode,muted:audio.muted,volume:audio.volume,
     signal:state.signal,lights:state.lights,stations:world.stations.map(s=>({...s})),rendering:{software:softwareRenderer,pixelRatio:renderer.getPixelRatio(),drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles}};
 }
 function cycleCamera() {
@@ -169,7 +187,7 @@ function isTyping(event) {
 addEventListener('keydown',event=>{
   if(!started||isTyping(event)||document.querySelector('dialog[open]'))return;
   const control=controlByCode[event.code];
-  if(control) {keys[control]=true;event.preventDefault();return;}
+  if(control) {if(autoDriving)setAutoDriving(false);keys[control]=true;event.preventDefault();return;}
   if(event.repeat)return;
   const commands={KeyR:resetCar,KeyC:cycleCamera,KeyM:()=>audio.toggle(),KeyH:()=>audio.horn(),KeyQ:()=>toggleSignal('left'),KeyE:()=>toggleSignal('right'),KeyL:toggleLights};
   if(commands[event.code]) {commands[event.code]();event.preventDefault();}
@@ -183,7 +201,7 @@ for(const button of controlButtons) {
   if(!(control in keys))continue;
   button.addEventListener('pointerdown',event=>{
     if(!started)return;
-    event.preventDefault();audio.init();button.setPointerCapture?.(event.pointerId);
+    event.preventDefault();audio.init();if(autoDriving)setAutoDriving(false);button.setPointerCapture?.(event.pointerId);
     keys[control]=true;button.classList.add('is-active');
   });
   const release=()=>{keys[control]=false;button.classList.remove('is-active');};
@@ -191,25 +209,26 @@ for(const button of controlButtons) {
   button.addEventListener('contextmenu',event=>event.preventDefault());
 }
 const buttonActions={resetButton:resetCar,cameraButton:cycleCamera,soundButton:()=>audio.toggle(),hornButton:()=>audio.horn(),leftSignalButton:()=>toggleSignal('left'),rightSignalButton:()=>toggleSignal('right'),lightsButton:toggleLights,refuelButton:requestRefuel};
-for(const [id,action] of Object.entries(buttonActions))$(`#${id}`)?.addEventListener('click',()=>{if(started)action();});
+for(const [id,action] of Object.entries(buttonActions))$(`#${id}`)?.addEventListener('click',()=>{if(started){if(id==='refuelButton')setAutoDriving(false);action();}});
+$('#autoDriveButton')?.addEventListener('click',()=>{if(started){audio.init();setAutoDriving(!autoDriving);}});
 addEventListener('game-start',event=>start(event.detail?.carId));
 addEventListener('game-menu',pause);
 addEventListener('game-volume',event=>audio.setVolume(event.detail?.volume));
-addEventListener('blur',()=>{clearInputs();refueling=false;audio.update(0,false,false,false,false);});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInputs();refueling=false;audio.update(0,false,false,false,false);}});
+addEventListener('blur',()=>{setAutoDriving(false);clearInputs();refueling=false;audio.update(0,false,false,false,false);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){setAutoDriving(false);clearInputs();refueling=false;audio.update(0,false,false,false,false);}});
 
 function collision(x,z) {
   if(Math.abs(x)>CITY_HALF-3||Math.abs(z)>CITY_HALF-3)return true;
   return world.obstacles.some(o=>x>o.minX&&x<o.maxX&&z>o.minZ&&z<o.maxZ)||traffic.collide(x,z);
 }
-function physics(dt) {
+function physics(dt,controls=keys) {
   const road=world.isOnRoad(state.x,state.z);
   const maxSpeed=selected.maxSpeed/3.6*(road?1:selected.type==='suv'?.68:.38);
   const acceleration=9+selected.maxSpeed*.045;
   const braking=32+selected.maxSpeed*.04;
   const hasFuel=state.fuel>0;
-  if(keys.up&&hasFuel)state.speed+=(state.speed<-.5?braking:acceleration)*dt;
-  else if(keys.down) {
+  if(controls.up&&hasFuel)state.speed+=(state.speed<-.5?braking:acceleration)*dt;
+  else if(controls.down) {
     if(hasFuel)state.speed+=state.speed>1?-braking*dt:-10*dt;
     else state.speed=state.speed>0?Math.max(0,state.speed-braking*dt):Math.min(0,state.speed+braking*dt);
   }
@@ -217,16 +236,16 @@ function physics(dt) {
     const drag=(road?3.8:9)*dt;
     state.speed=Math.abs(state.speed)<drag?0:state.speed-Math.sign(state.speed)*drag;
   }
-  if(keys.handbrake) {
+  if(controls.handbrake) {
     const force=38*dt;
     state.speed=Math.abs(state.speed)<force?0:state.speed-Math.sign(state.speed)*force;
   }
   state.speed=THREE.MathUtils.clamp(state.speed,-Math.min(12,maxSpeed*.35),maxSpeed);
-  const steering=(keys.left?1:0)-(keys.right?1:0);
-  state.steering=THREE.MathUtils.damp(state.steering,steering*(keys.handbrake?.85:.58),10,dt);
+  const steering=typeof controls.steering==='number'?controls.steering:(controls.left?1:0)-(controls.right?1:0);
+  state.steering=THREE.MathUtils.damp(state.steering,steering*(controls.handbrake?.85:.58),10,dt);
   const ratio=Math.min(Math.abs(state.speed)/13,1);
-  state.driftAngle=THREE.MathUtils.damp(state.driftAngle,keys.handbrake&&Math.abs(state.speed)>7?-state.steering*.45*ratio:0,keys.handbrake?5:9,dt);
-  if(Math.abs(state.speed)>.08)state.heading+=state.steering*Math.sign(state.speed)*ratio*(keys.handbrake?2.3:1.6)/(1+Math.abs(state.speed)/58)*dt;
+  state.driftAngle=THREE.MathUtils.damp(state.driftAngle,controls.handbrake&&Math.abs(state.speed)>7?-state.steering*.45*ratio:0,controls.handbrake?5:9,dt);
+  if(Math.abs(state.speed)>.08)state.heading+=state.steering*Math.sign(state.speed)*ratio*(controls.handbrake?2.3:1.6)/(1+Math.abs(state.speed)/58)*dt;
   const h=state.heading+state.driftAngle*.45;
   const distance=state.speed*dt;
   // Continuous short steps stop fast cars from jumping through a wall or another car.
@@ -241,10 +260,10 @@ function physics(dt) {
     state.x=x;state.z=z;
   }
   state.wheelSpin-=state.speed*dt*2.25;
-  state.fuel=Math.max(0,state.fuel-dt*((Math.abs(state.speed)>.5?.04:0)+(keys.up&&hasFuel?.09:0)+Math.abs(state.speed)*.0004));
+  state.fuel=Math.max(0,state.fuel-dt*((Math.abs(state.speed)>.5?.04:0)+(controls.up&&hasFuel?.09:0)+Math.abs(state.speed)*.0004));
   progress.collisionCooldown=Math.max(0,progress.collisionCooldown-dt);
-  const canRefuel=nearbyStation()&&Math.abs(state.speed)<1.5&&!keys.up&&!keys.down;
-  if(canRefuel&&(keys.refuel||refueling)&&state.fuel<100) {
+  const canRefuel=nearbyStation()&&Math.abs(state.speed)<1.5&&!controls.up&&!controls.down;
+  if(canRefuel&&(controls.refuel||refueling)&&state.fuel<100) {
     refueling=true;state.speed=0;state.fuel=Math.min(100,state.fuel+dt*14);
     refuelSoundTimer-=dt;
     if(refuelSoundTimer<=0){audio.refuel();refuelSoundTimer=.5;}
@@ -278,15 +297,16 @@ function frame(now) {
   if(!active&&renderFrames<=0)return;
   if(!active)renderFrames--;
   traffic.update(dt,active);
+  const driveInputs=active&&autoDriving?autopilot.update(state,selected.maxSpeed,collectibles.coins,traffic.cars):keys;
   if(active) {
     const previousPosition={x:state.x,z:state.z};
-    physics(dt);collectibles.update(dt,previousPosition);
-    effects.update(dt,keys.handbrake&&Math.abs(state.speed)>7&&Math.abs(state.steering)>.15);
+    physics(dt,driveInputs);collectibles.update(dt,previousPosition);
+    effects.update(dt,driveInputs.handbrake&&Math.abs(state.speed)>7&&Math.abs(state.steering)>.15);
     blinkTimer+=dt;
     if(blinkTimer>.45){blinkTimer=0;blink=!blink;if(state.signal&&blink)audio.indicator();}
-    audio.update(state.speed,keys.up&&state.fuel>0,keys.down,keys.handbrake,state.fuel>0);
+    audio.update(state.speed,driveInputs.up&&state.fuel>0,driveInputs.down,driveInputs.handbrake,state.fuel>0);
   }
-  updateVehicle(car,state,keys,dt,blink,state.lights);
+  updateVehicle(car,state,driveInputs,dt,blink,state.lights);
   sun.position.set(state.x+80,110,state.z+65);sun.target.position.set(state.x,0,state.z);
   sky.position.set(state.x,0,state.z);
   world.update(state.x,state.z);
