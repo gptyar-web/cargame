@@ -158,6 +158,11 @@ button,input,select{min-height:44px}
 .menu-button span{padding-right:8px}
 .car-actions{position:fixed;bottom:max(27px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;gap:6px;direction:ltr}
 .car-actions .ui-button{direction:rtl;font-size:10px}
+.car-actions #autoDriveButton{white-space:nowrap;min-width:72px;border-color:#79dfbb77;color:#d2ffef;font-weight:800;transition:background .16s,border-color .16s,box-shadow .16s}
+.car-actions #autoDriveButton[aria-pressed="true"]{background:#17644bdc;border-color:#85ffd0;color:#fff;box-shadow:0 0 0 1px #85ffd033,0 0 18px #43db9b55}
+.car-actions #autoDriveButton:focus-visible{outline:2px solid #85ffd0;outline-offset:3px}
+.car-actions #autoDriveButton:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:370px){.car-actions{gap:3px}.car-actions .ui-button{padding-left:5px;padding-right:5px}.car-actions #autoDriveButton{min-width:60px}}
 .touch-controls{position:fixed;right:max(20px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;user-select:none;touch-action:none}
 .touch-group{display:flex;gap:8px;direction:ltr}
 .control-button{width:55px;height:55px;min-height:55px;border-radius:13px;font-size:24px;color:#e0edf1;touch-action:none;-webkit-user-select:none;user-select:none}
