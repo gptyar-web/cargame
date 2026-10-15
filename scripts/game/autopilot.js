@@ -46,8 +46,9 @@ function coinRoad(coin) {
 function compact(points, position) {
   const result = [];
   let previous = position;
-  for (const point of points) {
-    if (distance(point, previous) > .75) { result.push(point); previous = point; }
+  for (const [i, point] of points.entries()) {
+    // Sub-four-metre lane offsets must not conceal an imminent right-angle turn.
+    if (distance(point, previous) > 4.5 || i === points.length - 1) { result.push(point); previous = point; }
   }
   return result;
 }
@@ -112,33 +113,52 @@ export function planCoinRoute(position, heading, coins) {
  */
 export function createCoinAutopilot() {
   let route = null;
-  let index = 0;
+  let index = 0, elapsed = 0, bestGap = Infinity, stalled = 0;
+  const ignored = new Map();
 
-  function reset() { route = null; index = 0; }
+  function reset() {
+    route = null; index = 0; elapsed = 0; bestGap = Infinity; stalled = 0; ignored.clear();
+  }
+  function chooseRoute(state, coins) {
+    const available = coins.filter(coin => (ignored.get(coin) ?? 0) <= elapsed);
+    route = planCoinRoute(state, state.heading, available.length ? available : coins);
+    index = 0; bestGap = Infinity; stalled = 0;
+  }
 
-  function update(state, maxSpeedKmh, coins, traffic = []) {
+  function update(state, maxSpeedKmh, coins, traffic = [], dt = 1 / 60) {
+    elapsed += dt;
     if (!coins.length || state.fuel <= 0) {
       return { up: false, down: false, left: false, right: false, handbrake: false, refuel: false, steering: 0, targetSpeed: 0 };
     }
     // Collected coins are respawned in-place by the game, so compare coordinates too.
     if (!route || !coins.includes(route.coin) || route.coin.x !== route.x || route.coin.z !== route.z) {
-      route = planCoinRoute(state, state.heading, coins);
-      index = 0;
+      chooseRoute(state, coins);
     }
     if (!route) return { up: false, down: false, steering: 0, handbrake: false, refuel: false };
 
-    const points = route.waypoints;
+    let points = route.waypoints;
     const speed = Math.max(0, state.speed);
-    while (index < points.length - 1 && distance(state, points[index]) < clamp(speed * .18, 4.5, 9))
+    const previousIndex = index;
+    while (index < points.length - 1 && distance(state, points[index]) < clamp(speed * .14, 3.5, 6))
       index++;
+    if(index !== previousIndex) { bestGap = Infinity; stalled = 0; }
 
-    const waypoint = points[index];
-    const gap = distance(state, waypoint);
-    const lookahead = clamp(speed * .4, 8, 18);
+    let waypoint = points[index];
+    let gap = distance(state, waypoint);
+    if (gap < bestGap - .8) { bestGap = gap; stalled = 0; }
+    else stalled += dt;
+    // A missed coin or blocked approach must never trap the car in an endless orbit.
+    if (stalled > 4.5) {
+      ignored.set(route.coin, elapsed + 24);
+      chooseRoute(state, coins);
+      points = route.waypoints;
+      waypoint = points[index]; gap = distance(state, waypoint);
+    }
+    const lookahead = clamp(speed * .5 + 22, 25, 45);
     let aim = waypoint;
     if (index < points.length - 1 && gap < lookahead) {
       const next = points[index + 1];
-      const fraction = .35 * (1 - gap / lookahead);
+      const fraction = clamp((lookahead - gap) / distance(waypoint, next), 0, 1);
       aim = { x: waypoint.x + (next.x - waypoint.x) * fraction,
         z: waypoint.z + (next.z - waypoint.z) * fraction };
     }
@@ -156,8 +176,8 @@ export function createCoinAutopilot() {
       if (bend > .25) {
         // Start slowing early enough to negotiate an intersection, then accelerate.
         const cornerSpeed = clamp(16 - bend * 5, 7, 15);
-        const brakingDistance = Math.max(0, gap - 9);
-        targetSpeed = Math.min(targetSpeed, Math.sqrt(cornerSpeed ** 2 + 2 * 25 * brakingDistance));
+        const brakingDistance = Math.max(0, gap - 20);
+        targetSpeed = Math.min(targetSpeed, Math.sqrt(cornerSpeed ** 2 + 2 * 12 * brakingDistance));
       }
     }
 
